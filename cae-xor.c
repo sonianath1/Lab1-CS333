@@ -11,22 +11,24 @@
 
 # define OPTIONS "edc:x:hD" // double colon means optional arg
 
-static int K_INDEX = 0; // index of key to keep track of
+static int KC_INDEX = 0; // index of key to keep track of ceasar_cihper 
+static int KX_INDEX = 0; // index of key to keep track of xor cipher
+static const int BUFFER = 1000;
 static const int SHIFT = 32;
 
-char* cesar_encrypt(char* key, char* text); // calls cesar cipher then xor
-					    //char* decrypt(char key[], char text[]); // calls xor then cesar cipher
 
+char cesar_encrypt(char _char, char* key, bool crypt);
+unsigned char xor_encrypt(unsigned char _byte, char* key);
 
 
 
 int main(int argc, char *argv[])
 {
-	char* key = NULL; // key for ceasar encryption
-			  //	char* x_key = NULL; // key for xor excryption
-	char* text = NULL; // text to encrypt or decrpyt
+	char* c_key = NULL; // key for ceasar encryption
+	char* x_key = NULL;
 	bool crypt = true; // true means to encrypt, false means to decrypt 
-
+	ssize_t br = 0;
+	char buffer[BUFFER];
 
 	{
 		int opt = 0;
@@ -45,13 +47,12 @@ int main(int argc, char *argv[])
 					break;
 
 				case 'c':
+					if (optarg)
+						c_key = optarg;
+					break;
 				case 'x':
 					if (optarg)
-					{
-						//						x_key = malloc(100 * sizeof(char));
-						//						strcpy(x_key, optarg);
-						key = optarg;
-					}
+						x_key = optarg;
 					break;
 
 				case 'h':
@@ -76,40 +77,78 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	text = malloc(100 * sizeof(char));	
-	scanf("%s", text);
 
-	if (crypt)
-		text = cesar_encrypt(key, text);
-	//	else
-	//		text = decrypt(x_key, text);	
+	while ((br = read(STDIN_FILENO, buffer, BUFFER)) != 0) 
+	{
+		int elements = br / sizeof(char);
+		KC_INDEX = 0;
+		KX_INDEX = 0;
 
-	printf("\nHere is your text: %s\n", text);	
 
-	//	if (c_key) free(c_key);
-	//	if (x_key) free(x_key);
-	if (text) free(text);
+		if (crypt) 
+		{
+			// first do cesar cipher
+			for (int i = 0; i < elements; ++i)
+				buffer[i] = cesar_encrypt(buffer[i], c_key, crypt);		
+
+			// second do xor 	
+			for (ssize_t i = 0; i < br; ++i)
+				buffer[i] = xor_encrypt(buffer[i], x_key);	
+
+		}
+		else 
+		{	
+			// second do xor 	
+			for (ssize_t i = 0; i < br; ++i)
+				buffer[i] = xor_encrypt(buffer[i], x_key);	
+
+			// first do cesar cipher
+			for (int i = 0; i < elements; ++i)
+				buffer[i] = cesar_encrypt(buffer[i], c_key, crypt);		
+		}
+
+		write(STDOUT_FILENO, buffer, br);
+	}
 
 	exit(EXIT_SUCCESS);
 }
 
-char* cesar_encrypt(char* key, char* text) // calls cesar cipher 
+
+char cesar_encrypt(char _char, char* key, bool crypt)
+{
+
+	if (key) 
+	{
+		int k_len = strlen(key);
+		int base = 32; // where ' ' is in ascii
+		int range = 95; // the range of printable chars 
+				
+		if (isprint(_char))
+		{
+			int shift = key[KC_INDEX % k_len] - SHIFT;
+			if (crypt)
+				_char = base + ((_char - base + shift + range) % range);
+//				_char += shift;
+			else
+				_char = base + ((_char - base -  shift + range) % range);
+//				_char -= shift;
+
+			++KC_INDEX;	
+		}	
+	}
+	return _char;
+}
+
+
+unsigned char xor_encrypt(unsigned char _byte, char* key)
 {
 	if (key)
 	{
-		int t_len = strlen(text);
 		int k_len = strlen(key);
 
-		for (int i = 0; i < t_len; ++i)
-		{
-			// add a thing to make sure it doesnt go out of bound for shifitng the text. ex: z becomes a printable char.
-			if (isprint(text[i]))
-			{
-				int shift = key[K_INDEX % k_len] - SHIFT;
-				text[i] += shift;
-				++K_INDEX;
-			}
-		}	
+		_byte ^= key[KX_INDEX % k_len];
+		++KX_INDEX;
 	}
-	return text; // returns text unaffected if key DNE
+
+	return _byte;
 }
