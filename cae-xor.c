@@ -77,61 +77,56 @@ int main(int argc, char *argv[])
 		}
 	}
 
-
-	while ((br = read(STDIN_FILENO, buffer, BUFFER)) != 0) 
+	while ((br = read(STDIN_FILENO, buffer, BUFFER)) != 0)
 	{
-		int elements = br / sizeof(char);
-		KC_INDEX = 0;
-		KX_INDEX = 0;
-
-
-		if (crypt) 
+		// if you are encrypting
+		// you need to do cesar first
+		// then do xor
+		if (crypt)
 		{
 			// first do cesar cipher
-			for (int i = 0; i < elements; ++i)
-				buffer[i] = cesar_encrypt(buffer[i], c_key, crypt);		
+			for (int i = 0; i < br; ++i)
+				buffer[i] = cesar_encrypt(buffer[i], c_key, crypt);
 
-			// second do xor 	
-			for (ssize_t i = 0; i < br; ++i)
-				buffer[i] = xor_encrypt(buffer[i], x_key);	
-
+			// second do xor
+			for (int i = 0; i < br; ++i)
+				buffer[i] = xor_encrypt(buffer[i], x_key);
 		}
-		else 
-		{	
-			// second do xor 	
-			for (ssize_t i = 0; i < br; ++i)
-				buffer[i] = xor_encrypt(buffer[i], x_key);	
+		// if decrypting
+		// you would do 
+		// vice versa
+		else
+		{
+			// second do xor
+			for (int i = 0; i < br; ++i)
+				buffer[i] = xor_encrypt(buffer[i], x_key);
 
 			// first do cesar cipher
-			for (int i = 0; i < elements; ++i)
-				buffer[i] = cesar_encrypt(buffer[i], c_key, crypt);		
+			for (int i = 0; i < br; ++i)
+				buffer[i] = cesar_encrypt(buffer[i], c_key, crypt);
 		}
 
 		write(STDOUT_FILENO, buffer, br);
 	}
-
+	
 	exit(EXIT_SUCCESS);
 }
 
 
 char cesar_encrypt(char _char, char* key, bool crypt)
 {
-
 	if (key) 
 	{
 		int k_len = strlen(key);
-		int base = 32; // where ' ' is in ascii
 		int range = 95; // the range of printable chars 
-				
+
 		if (isprint(_char))
 		{
 			int shift = key[KC_INDEX % k_len] - SHIFT;
 			if (crypt)
-				_char = base + ((_char - base + shift + range) % range);
-//				_char += shift;
+				_char = SHIFT + ((_char - SHIFT + shift + range) % range);
 			else
-				_char = base + ((_char - base -  shift + range) % range);
-//				_char -= shift;
+				_char = SHIFT + ((_char - SHIFT -  shift + range) % range);
 
 			++KC_INDEX;	
 		}	
